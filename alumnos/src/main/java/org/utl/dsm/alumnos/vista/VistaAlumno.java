@@ -5,12 +5,12 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.Button;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TextField;
 
 import javafx.scene.input.KeyCode;
+import javafx.scene.text.Text;
 import org.utl.dsm.alumnos.conexion.ConexionArduino;
 import org.utl.dsm.alumnos.controlador.ControladorAlumno;
 import org.utl.dsm.alumnos.modelo.ModeloAlumno;
@@ -27,6 +27,12 @@ public class VistaAlumno implements Initializable {
     private TextField txtMatricula;
 
     @FXML
+    private Text txtEstatus;
+
+    @FXML
+    private Text txtConexion;
+
+    @FXML
     private TableColumn<ModeloAlumno, String> colMatricula;
 
     @FXML
@@ -36,6 +42,7 @@ public class VistaAlumno implements Initializable {
     private TableView<ModeloAlumno> tableAlumnos;
     private ObservableList<ModeloAlumno> alumnos;
     private ControladorAlumno controladorAlumno;
+    private ConexionArduino conexionArduino;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -58,6 +65,7 @@ public class VistaAlumno implements Initializable {
             alumnos = controladorAlumno.obtenerTodos(); // OBTENEMOS DE LA BASE DE DATOS NUESTRA LISTA DE ALUMNOS
         } catch (SQLException e) {
             e.printStackTrace();
+            txtConexion.setText("Error con la base de datos");
             // NO HAY CONEXION CON LA BD
         }
         alumnos.sort(Comparator.comparing(ModeloAlumno::getNombre)); // ORDENAMOS LA LISTA DE LA A - Z
@@ -66,28 +74,39 @@ public class VistaAlumno implements Initializable {
 
     public void buscar() {
         String matricula = txtMatricula.getText(); // OBTENEMOS LA CADENA DEL CAMPO DE TEXTO
-        try {
             ModeloAlumno alumnoBuscado = null; // CREAMOS UN ALUMNO
             for (ModeloAlumno alumno : alumnos) { // ITERAMOS SOBRE LA LISTA PARA BUSCAR EL ALUMNO
                 if (alumno.getMatricula().equals(matricula)) { // BUSCAMOS POR MATRICULA
                     alumnoBuscado = alumno; // ASIGNAMOS LA COINCIDENCIA EN NUESTRO OBJETO
                 }
             }
-            if(alumnoBuscado != null) {
+            if(alumnoBuscado != null) { // SI EL OBJETO COINCIDE LO POSICIONAMOS ARRIBA EN LA LISTA
                 alumnos.remove(alumnoBuscado);
                 alumnos.add(0, alumnoBuscado);
                 tableAlumnos.setItems(alumnos);
-                controladorAlumno.mostrar(alumnoBuscado);
-                // SI EL OBJETO COINCIDE LO POSICIONAMOS ARRIBA EN LA LISTA
-            } else {
-                // SI NO, NO ENCONTRAMOS AL USUARIO
-                controladorAlumno.mostrar(alumnoBuscado);
+                txtEstatus.setText("Alumno encontrado");
+                enfocar();
+                try {
+                    controladorAlumno.mostrar(alumnoBuscado);
+                } catch (IOException e) { // NO HAY CONEXION CON EL ARDUINO
+                    txtConexion.setText("No hay arduino para mostrar");
+                }
+            } else { // SI NO, NO ENCONTRAMOS AL USUARIO
+                txtEstatus.setText("Alumno no encontrado");
+                try {
+                    controladorAlumno.mostrar(alumnoBuscado);
+                } catch (IOException e) {
+                    // NO HAY CONEXION CON EL ARDUINO
+                    txtConexion.setText("");
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-            // NO HAY CONEXION CON EL ARDUINO
         }
         txtMatricula.clear(); // LIMPIAMOS EL CAMPO DE TEXTO DESPUES DE CADA BUSQUEDA
+    }
+
+    public void verificarArduino() {
+        this.conexionArduino = new ConexionArduino();
+        conexionArduino.abrir();
+        conexionArduino.busData();
     }
 
     public void escuharCambios() {
@@ -96,6 +115,11 @@ public class VistaAlumno implements Initializable {
                 buscar();
             }
         });
+    }
+
+    public void enfocar() {
+        tableAlumnos.getSelectionModel().select(0);
+        txtMatricula.requestFocus();
     }
 
 }
